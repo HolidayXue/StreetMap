@@ -1,10 +1,13 @@
 // Copyright 2017 Mike Fricker. All Rights Reserved.
 
-#include "StreetMapRuntime.h"
 #include "StreetMapSceneProxy.h"
+#include "StreetMapRuntime.h"
 #include "StreetMapComponent.h"
 #include "Runtime/Engine/Public/SceneManagement.h"
-
+#include "DynamicMeshBuilder.h"
+#include "RenderingThread.h"
+#include "Engine/Engine.h"
+#include "LocalVertexFactory.h"
 
 FStreetMapSceneProxy::FStreetMapSceneProxy(const UStreetMapComponent* InComponent)
 	: FPrimitiveSceneProxy(InComponent),
@@ -132,11 +135,13 @@ void FStreetMapSceneProxy::MakeMeshBatch( FMeshBatch& Mesh, FMaterialRenderProxy
 	{
 		if (bDrawCollision)
 		{
-			MaterialProxy = new FColoredMaterialRenderProxy(GEngine->ShadedLevelColorationUnlitMaterial->GetRenderProxy(IsSelected(), IsHovered()), FColor::Cyan);
+			//MaterialProxy = new FColoredMaterialRenderProxy(GEngine->ShadedLevelColorationUnlitMaterial->GetRenderProxy(IsSelected(), IsHovered()), FColor::Cyan);
+			MaterialProxy = new FColoredMaterialRenderProxy(GEngine->ShadedLevelColorationUnlitMaterial->GetRenderProxy(), FColor::Cyan);
 		}
 		else if (MaterialProxy == nullptr)
 		{
-			MaterialProxy = StreetMapComp->GetDefaultMaterial()->GetRenderProxy(IsSelected());
+			//MaterialProxy = StreetMapComp->GetDefaultMaterial()->GetRenderProxy(IsSelected());
+			MaterialProxy = StreetMapComp->GetDefaultMaterial()->GetRenderProxy();
 		}
 	}
 	
@@ -146,7 +151,13 @@ void FStreetMapSceneProxy::MakeMeshBatch( FMeshBatch& Mesh, FMaterialRenderProxy
 	Mesh.VertexFactory = &VertexFactory;
 	Mesh.MaterialRenderProxy = MaterialProxy;
 	Mesh.CastShadow = true;
-	BatchElement.PrimitiveUniformBuffer = CreatePrimitiveUniformBufferImmediate(GetLocalToWorld(), GetBounds(), GetLocalBounds(), true, UseEditorDepthTest());
+	FBoxSphereBounds outSinked;
+	GetPreSkinnedLocalBounds(outSinked);
+
+	
+	//BatchElement.PrimitiveUniformBuffer = CreatePrimitiveUniformBufferImmediate(GetLocalToWorld(), GetBounds(), GetLocalBounds(), outSinked, true, UseEditorDepthTest());
+	//BatchElement.PrimitiveUniformBuffer = CreatePrimitiveUniformBufferImmediate(GetLocalToWorld(), GetBounds(), GetLocalBounds(), outSinked, true, DrawsVelocity());
+	//BatchElement.PrimitiveUniformBufferResource = &(this->GetUniformBuffer());
 	BatchElement.FirstIndex = 0;
 	const int IndexCount = IndexBuffer32.Indices.Num();
 	BatchElement.NumPrimitives = IndexCount / 3;
@@ -168,6 +179,7 @@ void FStreetMapSceneProxy::DrawStaticElements( FStaticPrimitiveDrawInterface* PD
 		FMeshBatch MeshBatch;
 		MakeMeshBatch( MeshBatch, nullptr);
 		PDI->DrawMesh( MeshBatch, ScreenSize );
+
 	}
 }
 
@@ -183,8 +195,9 @@ void FStreetMapSceneProxy::GetDynamicMeshElements(const TArray<const FSceneView*
 
 			const bool bIsWireframe = AllowDebugViewmodes() && View.Family->EngineShowFlags.Wireframe;
 
-			FColoredMaterialRenderProxy* WireframeMaterialRenderProxy = GEngine->WireframeMaterial && bIsWireframe ? new FColoredMaterialRenderProxy(GEngine->WireframeMaterial->GetRenderProxy(IsSelected()), FLinearColor(0, 0.5f, 1.f)) : NULL;
+			//FColoredMaterialRenderProxy* WireframeMaterialRenderProxy = GEngine->WireframeMaterial && bIsWireframe ? new FColoredMaterialRenderProxy(GEngine->WireframeMaterial->GetRenderProxy(IsSelected()), FLinearColor(0, 0.5f, 1.f)) : NULL;
 
+			FColoredMaterialRenderProxy* WireframeMaterialRenderProxy = GEngine->WireframeMaterial && bIsWireframe ? new FColoredMaterialRenderProxy(GEngine->WireframeMaterial->GetRenderProxy(), FLinearColor(0, 0.5f, 1.f)) : NULL;
 
 			if (MustDrawMeshDynamically(View))
 			{
